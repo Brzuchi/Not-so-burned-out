@@ -15,11 +15,11 @@ export const SUPABASE_KEY = 'sb_publishable_BHJFvo1pDcmKbndJvzaC7Q_tU2PQ8uH';
 
 /* Jména a pořadí profilů — klidně si přepiš popisky. */
 export const PROFILES = [
-  { id: 'me',    label: 'Kokotko' },
-  { id: 'matej', label: 'Pičko' },
+  { id: 'me',    label: 'Kokot🇭🇺' },
+  { id: 'matej', label: 'Pičko🇵🇱' },
 ];
 
 /* Pomocná kontrola, jestli jsou údaje doplněné. */
 export const isConfigured =
-  !SUPABASE_URL.includes('VAS-PROJEKT') &&
-  !SUPABASE_KEY.includes('SEM-VLOZTE');
+  !SUPABASE_URL.includes('https://tfgtrvpzzdszdjnzxrdj.supabase.co') &&
+  !SUPABASE_KEY.includes('sb_publishable_BHJFvo1pDcmKbndJvzaC7Q_tU2PQ8uH');
