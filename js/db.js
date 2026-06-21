@@ -19,10 +19,19 @@ export async function fetchChallenges() {
 }
 
 /* Přidá novou výzvu. */
-export async function addChallenge({ owner, name, goal, frequency }) {
+export async function addChallenge({ owner, name, goal, frequency, deadline }) {
   const { error } = await supabase
     .from('challenges')
-    .insert({ owner, name, goal, frequency, completions: {} });
+    .insert({ owner, name, goal, frequency, deadline: deadline || null, completions: {} });
+  if (error) throw error;
+}
+
+/* Nastaví / změní / zruší (null) termín výzvy. */
+export async function saveDeadline(id, deadline) {
+  const { error } = await supabase
+    .from('challenges')
+    .update({ deadline: deadline || null })
+    .eq('id', id);
   if (error) throw error;
 }
 

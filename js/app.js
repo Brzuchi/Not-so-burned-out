@@ -4,7 +4,7 @@
 
 import {
   fetchChallenges, addChallenge, saveCompletions,
-  removeChallenge, subscribeToChanges,
+  removeChallenge, subscribeToChanges, saveDeadline,
 } from './db.js';
 import { PROFILES, isConfigured } from './supabase-config.js';
 
@@ -40,6 +40,20 @@ function computeStreak(comp) {
   return s;
 }
 const weekCount = (comp) => weekKeys().filter((k) => comp[k]).length;
+
+/* Kolik dní zbývá do termínu (záporné = po termínu, null = bez termínu). */
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const target = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((target - today) / 86400000);
+}
+function formatCzDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return `${d}. ${m}. ${y}`;
+}
 
 function czDays(n) {
   if (n === 1) return 'den';
@@ -88,6 +102,10 @@ function renderShell() {
             <option value="weekly">Týdně</option>
           </select>
         </div>
+        <label class="field">
+          <span class="field-lbl">Deadline (nepovinné)</span>
+          <input type="date" name="deadline" autocomplete="off" />
+        </label>
         <button class="btn-add" type="submit">+ Přidat výzvu</button>
       </form>
       <div class="list" id="list-${p.id}"></div>
@@ -125,6 +143,28 @@ function renderVersus() {
     </div>${rows}`;
 }
 
+function renderDeadline(ch) {
+  const left = daysUntil(ch.deadline);
+  if (left === null) return '';
+  let cls = '', icon = '⏳', text = '';
+  if (left > 0) {
+    cls = left <= 7 ? 'soon' : '';
+    text = `Zbývá ${left} ${czDays(left)}`;
+  } else if (left === 0) {
+    cls = 'today'; icon = '🎯'; text = 'Termín je dnes';
+  } else {
+    cls = 'past'; icon = '⏰';
+    const a = Math.abs(left);
+    text = `Po termínu o ${a} ${czDays(a)}`;
+  }
+  return `
+    <div class="deadline ${cls}">
+      <span class="dl-ic">${icon}</span>
+      <span>${text}</span>
+      <span class="dl-when">do ${formatCzDate(ch.deadline)}</span>
+    </div>`;
+}
+
 function renderCard(ch) {
   const comp = ch.completions || {};
   const streak = computeStreak(comp);
@@ -153,6 +193,8 @@ function renderCard(ch) {
         </div>
       </div>
 
+      ${renderDeadline(ch)}
+
       <div class="stats">
         <div class="streak ${streak > 0 ? 'is-hot' : ''}">
           <span class="flame">🔥</span>
@@ -173,6 +215,12 @@ function renderCard(ch) {
       <div class="heat">
         <div class="heat-label">Posledních 28 dní · klikni pro úpravu</div>
         <div class="heat-grid">${cells}</div>
+      </div>
+
+      <div class="dl-edit">
+        <span class="dl-edit-lbl">Termín</span>
+        <input type="date" class="dl-input" data-action="set-deadline"
+               data-id="${ch.id}" value="${ch.deadline || ''}" />
       </div>
     </article>`;
 }
@@ -242,6 +290,15 @@ async function onToggle(id, date) {
   catch (err) { console.error(err); await loadAndRender(); }
 }
 
+async function onSetDeadline(id, value) {
+  const ch = state.challenges.find((c) => c.id === id);
+  if (!ch) return;
+  ch.deadline = value || null;   // optimistická aktualizace
+  render();
+  try { await saveDeadline(id, value); }
+  catch (err) { console.error(err); await loadAndRender(); }
+}
+
 async function onAdd(form) {
   const owner = form.dataset.owner;
   const fd = new FormData(form);
@@ -253,6 +310,7 @@ async function onAdd(form) {
       name,
       goal: (fd.get('goal') || '').toString().trim(),
       frequency: (fd.get('frequency') || 'daily').toString(),
+      deadline: (fd.get('deadline') || '').toString(),
     });
     form.reset();
     await loadAndRender();
@@ -274,6 +332,12 @@ document.addEventListener('click', (e) => {
   else if (a === 'tab') { state.activeTab = el.dataset.tab; updateTabs(); }
   else if (a === 'toggle-day') onToggle(el.dataset.id, el.dataset.date);
   else if (a === 'delete') onDelete(el.dataset.id);
+});
+
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-action="set-deadline"]');
+  if (!el) return;
+  onSetDeadline(el.dataset.id, el.value);
 });
 
 document.addEventListener('submit', (e) => {
