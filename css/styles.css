@@ -340,6 +340,37 @@ body {
   border-radius: 6px; padding: 1px 6px; font-size: 12.5px;
 }
 
+/* upozornění na termíny */
+.alerts:empty { display: none; }
+.alerts-box {
+  background: color-mix(in srgb, #ffc24b 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, #ffc24b 38%, var(--border));
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.alerts-head {
+  font-family: var(--ff-display); font-weight: 700; font-size: 14px;
+  color: #ffc24b; margin-bottom: 9px;
+}
+[data-theme="light"] .alerts-head { color: #b06f00; }
+.alerts-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.alerts-list li { display: flex; align-items: center; gap: 9px; font-size: 13.5px; }
+.alerts-list .al-who {
+  flex: none;
+  font-weight: 700; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--text-dim);
+  background: var(--surface-2); border-radius: 999px; padding: 3px 9px;
+}
+.alerts-list .al-name { flex: 1; font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alerts-list .al-tag { flex: none; font-weight: 700; }
+.alerts-list li.past  .al-tag { color: var(--danger); }
+.alerts-list li.today .al-tag { color: var(--accent-me); }
+.alerts-list li.soon  .al-tag { color: #d99700; }
+[data-theme="dark"] .alerts-list li.soon .al-tag { color: #ffc24b; }
+.alerts-list .al-more { color: var(--text-faint); font-size: 12.5px; }
+
 /* deadline / odpočet */
 .deadline {
   display: inline-flex; align-items: center; gap: 8px;
