@@ -103,7 +103,7 @@ function renderShell() {
           </select>
         </div>
         <label class="field">
-          <span class="field-lbl">Deadline (nepovinné)</span>
+          <span class="field-lbl">Deadline</span>
           <input type="date" name="deadline" autocomplete="off" />
         </label>
         <button class="btn-add" type="submit">+ Přidat výzvu</button>
