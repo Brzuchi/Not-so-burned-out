@@ -104,7 +104,7 @@ function renderShell() {
         </div>
         <label class="field">
           <span class="field-lbl">Deadline</span>
-          <input type="date" name="deadline" autocomplete="off" />
+          <input type="date" name="deadline" required autocomplete="off" />
         </label>
         <button class="btn-add" type="submit">+ Přidat výzvu</button>
       </form>
@@ -112,6 +112,7 @@ function renderShell() {
     </section>`).join('');
 
   document.getElementById('root').innerHTML = `
+    <div class="alerts" id="alerts"></div>
     <div class="versus" id="versus"></div>
     <div class="tabs" id="tabs" role="tablist">${tabs}</div>
     <div class="profiles">${panels}</div>`;
@@ -177,7 +178,7 @@ function renderCard(ch) {
   const cells = lastNDays(28).map((k) => `
     <button class="heat-cell ${comp[k] ? 'done' : ''} ${k === t ? 'today' : ''}"
             data-action="toggle-day" data-id="${ch.id}" data-date="${k}"
-            title="${k}" aria-label="${k}${comp[k] ? ' — splněno' : ''}"></button>`).join('');
+            title="${formatCzDate(k)}" aria-label="${formatCzDate(k)}${comp[k] ? ' — splněno' : ''}"></button>`).join('');
 
   return `
     <article class="card">
@@ -225,12 +226,61 @@ function renderCard(ch) {
     </article>`;
 }
 
+/* Řazení: nejbližší termín nahoře, prošlé úplně nahoře, bez termínu dolů. */
+function byDeadline(a, b) {
+  if (a.deadline && b.deadline) {
+    return a.deadline < b.deadline ? -1 : a.deadline > b.deadline ? 1 : 0;
+  }
+  if (a.deadline) return -1;
+  if (b.deadline) return 1;
+  return 0;
+}
+
+/* Upozornění na termíny do 3 dnů (a prošlé). */
+function renderAlerts() {
+  const box = document.getElementById('alerts');
+  if (!box) return;
+
+  const urgent = state.challenges
+    .map((c) => ({ c, left: daysUntil(c.deadline) }))
+    .filter((x) => x.left !== null && x.left <= 3)
+    .sort((a, b) => a.left - b.left);
+
+  if (!urgent.length) { box.innerHTML = ''; return; }
+
+  const rows = urgent.slice(0, 4).map(({ c, left }) => {
+    let tag = `za ${left} ${czDays(left)}`, cls = 'soon';
+    if (left < 0) { const a = Math.abs(left); tag = `po termínu o ${a} ${czDays(a)}`; cls = 'past'; }
+    else if (left === 0) { tag = 'dnes'; cls = 'today'; }
+    return `
+      <li class="${cls}">
+        <span class="al-who">${esc(labelOf(c.owner))}</span>
+        <span class="al-name">${esc(c.name)}</span>
+        <span class="al-tag">${tag}</span>
+      </li>`;
+  }).join('');
+
+  const rest = urgent.length - 4;
+  const more = rest > 0
+    ? `<li class="al-more">+ ${rest} ${rest <= 4 ? 'další' : 'dalších'}</li>`
+    : '';
+
+  box.innerHTML = `
+    <div class="alerts-box">
+      <div class="alerts-head">⏰ Blíží se termíny</div>
+      <ul class="alerts-list">${rows}${more}</ul>
+    </div>`;
+}
+
 function render() {
+  renderAlerts();
   renderVersus();
   for (const p of PROFILES) {
     const list = document.getElementById(`list-${p.id}`);
     if (!list) continue;
-    const items = state.challenges.filter((c) => c.owner === p.id);
+    const items = state.challenges
+      .filter((c) => c.owner === p.id)
+      .sort(byDeadline);
     list.innerHTML = items.length
       ? items.map(renderCard).join('')
       : `<div class="empty">Zatím žádná výzva.<br>Přidej první nahoře ↑</div>`;
@@ -293,7 +343,8 @@ async function onToggle(id, date) {
 async function onSetDeadline(id, value) {
   const ch = state.challenges.find((c) => c.id === id);
   if (!ch) return;
-  ch.deadline = value || null;   // optimistická aktualizace
+  if (!value) { render(); return; }   // termín je povinný – prázdnou hodnotu neuložíme
+  ch.deadline = value;                 // optimistická aktualizace
   render();
   try { await saveDeadline(id, value); }
   catch (err) { console.error(err); await loadAndRender(); }
@@ -303,14 +354,15 @@ async function onAdd(form) {
   const owner = form.dataset.owner;
   const fd = new FormData(form);
   const name = (fd.get('name') || '').toString().trim();
-  if (!name) return;
+  const deadline = (fd.get('deadline') || '').toString();
+  if (!name || !deadline) return;     // termín je povinný
   try {
     await addChallenge({
       owner,
       name,
       goal: (fd.get('goal') || '').toString().trim(),
       frequency: (fd.get('frequency') || 'daily').toString(),
-      deadline: (fd.get('deadline') || '').toString(),
+      deadline,
     });
     form.reset();
     await loadAndRender();
